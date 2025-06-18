@@ -2,9 +2,10 @@
  * @Author: zxiangfei 2464257291@qq.com
  * @Date: 2025-06-15 15:26:01
  * @LastEditors: zxiangfei 2464257291@qq.com
- * @LastEditTime: 2025-06-17 14:39:11
+ * @LastEditTime: 2025-06-18 13:02:54
  * @FilePath: /CMU-15-445/src/primer/trie.cpp
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 #include "primer/trie.h"
 #include <string_view>
@@ -14,7 +15,7 @@ namespace bustub {
 
 template <class T>
 auto Trie::Get(std::string_view key) const -> const T * {
-  throw NotImplementedException("Trie::Get is not implemented.");
+  // throw NotImplementedException("Trie::Get is not implemented.");
 
   // You should walk through the trie to find the node corresponding to the key. If the node doesn't exist, return
   // nullptr. After you find the node, you should use `dynamic_cast` to cast it to `const TrieNodeWithValue<T> *`. If
@@ -55,7 +56,7 @@ auto Trie::Get(std::string_view key) const -> const T * {
 template <class T>
 auto Trie::Put(std::string_view key, T value) const -> Trie {
   // Note that `T` might be a non-copyable type. Always use `std::move` when creating `shared_ptr` on that value.
-  throw NotImplementedException("Trie::Put is not implemented.");
+  // throw NotImplementedException("Trie::Put is not implemented.");
 
   // You should walk through the trie and create new nodes if necessary. If the node corresponding to the key already
   // exists, you should create a new `TrieNodeWithValue`.
@@ -66,7 +67,7 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
   std::vector<std::pair<char, std::shared_ptr<const TrieNode>>>
       path;  //保存路径，路径上的结点需要clone，非路径结点直接复用
   for (char c : key) {
-    path.push_back({c, current_node});
+    path.emplace_back(c, current_node);
     if (current_node == nullptr) {
       current_node = nullptr;  // 如果当前结点为空，说明路径不存在，即路径上下一个结点也为nullptr
       continue;                // 继续遍历下一个字符
@@ -122,7 +123,7 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
 }
 
 auto Trie::Remove(std::string_view key) const -> Trie {
-  throw NotImplementedException("Trie::Remove is not implemented.");
+  // throw NotImplementedException("Trie::Remove is not implemented.");
 
   // You should walk through the trie and remove nodes if necessary. If the node doesn't contain a value any more,
   // you should convert it to `TrieNode`. If a node doesn't have children any more, you should remove it.
@@ -135,7 +136,7 @@ auto Trie::Remove(std::string_view key) const -> Trie {
       path;  //保存路径，路径上的结点需要clone，非路径结点直接复用
 
   for (char c : key) {
-    path.push_back({c, current_node});
+    path.emplace_back(c, current_node);
     if (current_node == nullptr) {
       break;  // 如果当前结点为空，说明路径不存在，直接break
     }

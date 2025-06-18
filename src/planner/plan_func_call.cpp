@@ -2,9 +2,10 @@
  * @Author: zxiangfei 2464257291@qq.com
  * @Date: 2025-06-15 15:26:01
  * @LastEditors: zxiangfei 2464257291@qq.com
- * @LastEditTime: 2025-06-17 20:43:08
+ * @LastEditTime: 2025-06-18 11:41:04
  * @FilePath: /CMU-15-445/src/planner/plan_func_call.cpp
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 #include <memory>
 #include <tuple>
@@ -57,7 +58,7 @@ auto Planner::GetFuncCallFromFactory(const std::string &func_name, std::vector<A
   if (args.size() != 1) {
     throw Exception(ExceptionType::INVALID, "lower function requires exactly one argument");
   }
-  if (args[0]->GetReturnType().GetType() != TypeId::VARCHAR) {
+  if (args[0]->GetReturnType() != TypeId::VARCHAR) {
     throw Exception(ExceptionType::INVALID, "unexpected arg");
   }
 

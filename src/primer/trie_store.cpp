@@ -37,8 +37,8 @@ void TrieStore::Put(std::string_view key, T value) {
   //—————————————————————————————start——————————————————————————————
   //同时只有一个写操作
   std::lock_guard<std::mutex> write_lock(write_lock_);     //获取写锁,只允许一个写操作进行
-  std::lock_guard<std::mutex> root_lock(root_lock_);       //获取root锁
   auto new_root = this->root_.Put(key, std::move(value));  //调用Trie的Put方法插入值
+  std::lock_guard<std::mutex> root_lock(root_lock_);       //获取root锁
   this->root_ = std::move(new_root);                       //更新根节点
   //—————————————————————————————end——————————————————————————————
 }
@@ -51,8 +51,8 @@ void TrieStore::Remove(std::string_view key) {
   //—————————————————————————————start——————————————————————————————
   //同时只有一个删除操作
   std::lock_guard<std::mutex> write_lock(write_lock_);  //获取写锁,只允许一个写操作进行
-  std::lock_guard<std::mutex> root_lock(root_lock_);    //获取root锁
   auto new_root = this->root_.Remove(key);              //调用Trie的Remove方法删除值
+  std::lock_guard<std::mutex> root_lock(root_lock_);    //获取root锁
   this->root_ = std::move(new_root);                    //更新根节点
   //—————————————————————————————end——————————————————————————————
 }
