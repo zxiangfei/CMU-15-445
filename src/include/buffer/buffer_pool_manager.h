@@ -28,6 +28,7 @@ namespace bustub {
 
 /**
  * BufferPoolManager reads disk pages to and from its internal buffer pool.
+ * 负责在内存中维护一个固定大小的缓冲池，用于存储从磁盘读取的页面，使用 LRU-K 算法管理页面置换
  */
 class BufferPoolManager {
  public:
@@ -174,24 +175,24 @@ class BufferPoolManager {
 
  private:
   /** Number of pages in the buffer pool. */
-  const size_t pool_size_;
+  const size_t pool_size_;  //缓冲池大小
   /** The next page id to be allocated  */
-  std::atomic<page_id_t> next_page_id_ = 0;
+  std::atomic<page_id_t> next_page_id_ = 0;  //分配的下一个页面ID
 
   /** Array of buffer pool pages. */
-  Page *pages_;
+  Page *pages_;  //缓冲池页面数组
   /** Pointer to the disk sheduler. */
-  std::unique_ptr<DiskScheduler> disk_scheduler_ __attribute__((__unused__));
+  std::unique_ptr<DiskScheduler> disk_scheduler_ __attribute__((__unused__));  //指向磁盘调度器的指针
   /** Pointer to the log manager. Please ignore this for P1. */
-  LogManager *log_manager_ __attribute__((__unused__));
+  LogManager *log_manager_ __attribute__((__unused__));  // 指向日志管理器的指针
   /** Page table for keeping track of buffer pool pages. */
-  std::unordered_map<page_id_t, frame_id_t> page_table_;
+  std::unordered_map<page_id_t, frame_id_t> page_table_;  //页表，用于跟踪缓冲池页面，页号到frame的映射
   /** Replacer to find unpinned pages for replacement. */
-  std::unique_ptr<LRUKReplacer> replacer_;
+  std::unique_ptr<LRUKReplacer> replacer_;  // LRU-K替换器，用于查找未固定的页面以进行替换
   /** List of free frames that don't have any pages on them. */
-  std::list<frame_id_t> free_list_;
+  std::list<frame_id_t> free_list_;  //空闲帧链表
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
-  std::mutex latch_;
+  std::mutex latch_;  // 互斥锁，用于保护共享数据结构
 
   /**
    * @brief Allocate a page on disk. Caller should acquire the latch before calling this function.

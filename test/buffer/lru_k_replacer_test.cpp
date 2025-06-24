@@ -1,3 +1,12 @@
+/*
+ * @Author: zxiangfei 2464257291@qq.com
+ * @Date: 2025-06-15 15:26:01
+ * @LastEditors: zxiangfei 2464257291@qq.com
+ * @LastEditTime: 2025-06-20 12:57:27
+ * @FilePath: /CMU-15-445/test/buffer/lru_k_replacer_test.cpp
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 /**
  * lru_k_replacer_test.cpp
  */
@@ -16,7 +25,7 @@
 
 namespace bustub {
 
-TEST(LRUKReplacerTest, DISABLED_SampleTest) {
+TEST(LRUKReplacerTest, SampleTest) {
   LRUKReplacer lru_replacer(7, 2);
 
   // Scenario: add six elements to the replacer. We have [1,2,3,4,5]. Frame 6 is non-evictable.

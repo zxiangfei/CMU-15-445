@@ -23,7 +23,7 @@ namespace bustub {
 
 // NOLINTNEXTLINE
 // Check whether pages containing terminal characters can be recovered
-TEST(BufferPoolManagerTest, DISABLED_BinaryDataTest) {
+TEST(BufferPoolManagerTest, BinaryDataTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
   const size_t k = 5;
@@ -97,7 +97,7 @@ TEST(BufferPoolManagerTest, DISABLED_BinaryDataTest) {
 }
 
 // NOLINTNEXTLINE
-TEST(BufferPoolManagerTest, DISABLED_SampleTest) {
+TEST(BufferPoolManagerTest, SampleTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
   const size_t k = 5;
@@ -143,6 +143,7 @@ TEST(BufferPoolManagerTest, DISABLED_SampleTest) {
   // Scenario: If we unpin page 0 and then make a new page, all the buffer pages should
   // now be pinned. Fetching page 0 again should fail.
   EXPECT_EQ(true, bpm->UnpinPage(0, true));
+  std::cout << "Creating a new page after unpinning page 0." << std::endl;
   EXPECT_NE(nullptr, bpm->NewPage(&page_id_temp));
   EXPECT_EQ(nullptr, bpm->FetchPage(0));
 

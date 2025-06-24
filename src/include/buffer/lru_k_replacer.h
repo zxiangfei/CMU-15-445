@@ -14,6 +14,7 @@
 
 #include <limits>
 #include <list>
+#include <memory>
 #include <mutex>  // NOLINT
 #include <unordered_map>
 #include <vector>
@@ -26,14 +27,49 @@ namespace bustub {
 enum class AccessType { Unknown = 0, Lookup, Scan, Index };
 
 class LRUKNode {
+  //————————————————————————————start——————————————————————————————————————
+  // LRUKNode 是私有类，封装每个 frame 的历史访问记录和是否 evictable
+ public:
+  explicit LRUKNode(size_t k, frame_id_t fid) : k_(k), fid_(fid) {}  // LRUNode构造函数
+
+  /**
+   * 记录当前node访问，放入history_中，
+   * 如果 size 超过 K，移除最老的访问记录，始终只保留最近 K 个 timestamp
+   * 使用尾插法，尾部存放最新记录
+   */
+  void RecordAccess(size_t access_time) {
+    history_.push_back(access_time);
+    if (history_.size() > k_) {
+      history_.pop_front();
+    }
+  }
+
+  auto GetHistorySize() const -> size_t { return history_.size(); }
+
+  /**
+   * 计算 倒数第K次访问时间戳 和 当前时间的距离
+   * 如果不满K次访问，距离为 +inf
+   * 因为是尾插法，所以front是倒数第K次
+   */
+  auto GetKDistance() const -> size_t { return history_.front(); }
+
+  /**
+   * 获取和修改is_evictable_状态
+   */
+  void SetEvictable(bool evictable) { is_evictable_ = evictable; }
+  auto GetEvictable() const -> bool { return is_evictable_; }
+
+
+
+  //——————————————————————————————end—————————————————————————————————————————
  private:
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
   // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
 
-  [[maybe_unused]] std::list<size_t> history_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] frame_id_t fid_;
-  [[maybe_unused]] bool is_evictable_{false};
+  [[maybe_unused]] std::list<size_t> history_;  //储最近 k 次访问时间
+  [[maybe_unused]] size_t k_;                   // LRU-K 的 K
+  [[maybe_unused]] frame_id_t fid_;             // frame id
+  [[maybe_unused]] bool is_evictable_{false};   //是否可换出
 };
 
 /**
@@ -150,12 +186,13 @@ class LRUKReplacer {
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  [[maybe_unused]] std::unordered_map<frame_id_t, LRUKNode> node_store_;
-  [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] std::mutex latch_;
+  [[maybe_unused]] std::unordered_map<frame_id_t, std::shared_ptr<LRUKNode>>
+      node_store_;                                //哈希表存放frame id到 LRUKNode的映射
+  [[maybe_unused]] size_t current_timestamp_{0};  //当前时间戳，每个RecordAccess() 时应该自增
+  [[maybe_unused]] size_t curr_size_{0};          //当前 evictable frame 数量
+  [[maybe_unused]] size_t replacer_size_;  // frame总量   因为构造函数传入的参数赋值给了这个变量
+  [[maybe_unused]] size_t k_;              // LRU-K 中的 K
+  [[maybe_unused]] std::mutex latch_;      //互斥锁，保证线程安全
 };
 
 }  // namespace bustub
