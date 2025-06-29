@@ -95,7 +95,7 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
  * NewPage的包装器，返回的不是新页面的裸指针，而是BasicPageGuard结构
  * 功能与NewPage相同
  */
-auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard { return {this, nullptr}; }
+auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard { return {this, NewPage(page_id)}; }
 
 /**
  * p1
@@ -176,13 +176,23 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
  * FetchPage的包装器，返回的不是裸指针，而是BasicPageGuard结构
  * 功能与FetchPage相同
  */
-auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard {
+  Page *page = FetchPage(page_id);
+  return {this, page};  //返回构造的BasicPageGuard
+}
 /**
  * p2
  * FetchPageRead的包装器，返回的不是裸指针，而是ReadPageGuard结构
  * 功能与FetchPage相同
  */
-auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard {
+  Page *page = FetchPage(page_id);
+  if (page == nullptr) {
+    return {};  // 如果页面不存在，返回一个空的ReadPageGuard
+  }
+  page->RLatch();       // 获取读锁
+  return {this, page};  //返回构造的ReadPageGuard
+}
 /**
  * p2
  * FetchPageWrite的包装器，返回的不是裸指针，而是WritePageGuard结构
@@ -190,7 +200,14 @@ auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard { retu
  *
  * 如果调用FetchPageRead或FetchPageWrite，则预计返回的页面已经分别持有读或写锁
  */
-auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
+  Page *page = FetchPage(page_id);
+  if (page == nullptr) {
+    return {};  // 如果页面不存在，返回一个空的WritePageGuard
+  }
+  page->WLatch();       // 获取写锁
+  return {this, page};  //返回构造的WritePageGuard
+}
 
 /**
  * p1

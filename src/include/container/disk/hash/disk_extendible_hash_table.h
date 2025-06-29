@@ -34,6 +34,10 @@ namespace bustub {
  * manager. Non-unique keys are supported. Supports insert and delete. The
  * table grows/shrinks dynamically as buckets become full/empty.
  */
+/**
+ * 实现基于缓冲池管理器的可扩展哈希表。支持非唯一键。支持插入和删除。
+ * 当桶变满/空时，表会动态增长/缩小
+ */
 template <typename K, typename V, typename KC>
 class DiskExtendibleHashTable {
  public:
@@ -48,8 +52,9 @@ class DiskExtendibleHashTable {
    * @param directory_max_depth the max depth allowed for the directory page
    * @param bucket_max_size the max size allowed for the bucket page array
    */
-  explicit DiskExtendibleHashTable(const std::string &name, BufferPoolManager *bpm, const KC &cmp,
-                                   const HashFunction<K> &hash_fn, uint32_t header_max_depth = HTABLE_HEADER_MAX_DEPTH,
+  explicit DiskExtendibleHashTable(const std::string &name,  // NOLINT(modernize-pass-by-value)
+                                   BufferPoolManager *bpm, const KC &cmp, const HashFunction<K> &hash_fn,
+                                   uint32_t header_max_depth = HTABLE_HEADER_MAX_DEPTH,
                                    uint32_t directory_max_depth = HTABLE_DIRECTORY_MAX_DEPTH,
                                    uint32_t bucket_max_size = HTableBucketArraySize(sizeof(std::pair<K, V>)));
 
@@ -123,15 +128,19 @@ class DiskExtendibleHashTable {
                       ExtendibleHTableBucketPage<K, V, KC> *new_bucket, uint32_t new_bucket_idx,
                       uint32_t local_depth_mask);
 
+  auto SplitBucket(ExtendibleHTableDirectoryPage *directory, ExtendibleHTableBucketPage<K, V, KC> *bucket,
+                   uint32_t bucket_idx) -> bool;
+
   // member variables
-  std::string index_name_;
-  BufferPoolManager *bpm_;
-  KC cmp_;
-  HashFunction<K> hash_fn_;
-  uint32_t header_max_depth_;
-  uint32_t directory_max_depth_;
-  uint32_t bucket_max_size_;
-  page_id_t header_page_id_;
+  std::string
+      index_name_;  //索引名称，用于标识和管理索引文件，在创建buffer_pool_manager时会传入disk_manager，在创建disk_manager时会传入index_name
+  BufferPoolManager *bpm_;        //缓冲池管理器，用于管理页面缓存和磁盘I/O
+  KC cmp_;                        //比较器，用于比较键值对的键
+  HashFunction<K> hash_fn_;       //哈希函数，用于计算键的哈希值
+  uint32_t header_max_depth_;     //最大目录页深度，用于限制目录页的深度
+  uint32_t directory_max_depth_;  //最大桶页深度，用于限制桶页的深度
+  uint32_t bucket_max_size_;      //桶页的最大大小，用于限制每个桶页可以存储的键值对数量
+  page_id_t header_page_id_;      // header页ID，用于标识哈希表的头页
 };
 
 }  // namespace bustub

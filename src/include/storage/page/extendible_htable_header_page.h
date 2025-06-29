@@ -1,3 +1,12 @@
+/*
+ * @Author: zxiangfei 2464257291@qq.com
+ * @Date: 2025-06-15 15:26:01
+ * @LastEditors: zxiangfei 2464257291@qq.com
+ * @LastEditTime: 2025-06-28 23:12:23
+ * @FilePath: /CMU-15-445/src/include/storage/page/extendible_htable_header_page.h
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 //===----------------------------------------------------------------------===//
 //
 //                         BusTub
@@ -17,6 +26,34 @@
  *  ---------------------------------------------------
  */
 
+/**
+┌──────────────┐
+│ Header Page  │ ←── page_id = 0
+│──────────────│
+│ • max_depth           │ // 当前目录页的最大深度
+│* directory_page_ids_[]   │  目录页ID数组
+└──────────────┘
+       │
+       ▼
+┌───────────────────────────────┐
+│ Directory Page(s)             │ ←── page(s) 1…N
+│───────────────────────────────│
+| * max_depth_                │  // 当前目录页的最大深度
+│ • local_depths_[ ]            │  // 每个槽的本地深度
+│ • bucket_page_ids_[ ]         │  // 指向 BucketPage 的 page_id
+│ • global_depth                │  // 当前的全局深度
+└───────────────────────────────┘
+       │
+       ▼
+┌───────────────────────────────┐
+│ Bucket Page(s)                │ ←── page_id 自由分配
+│───────────────────────────────│
+│ • array< KeyType, ValueType > │  // 固定大小的键值槽
+│ • size                         │  // 当前桶的大小
+│ • max_size_                   │  // 最大桶大小
+└───────────────────────────────┘
+ */
+
 #pragma once
 
 #include <cstdlib>
@@ -32,8 +69,8 @@ static constexpr uint64_t HTABLE_HEADER_ARRAY_SIZE = 1 << HTABLE_HEADER_MAX_DEPT
 class ExtendibleHTableHeaderPage {
  public:
   // Delete all constructor / destructor to ensure memory safety
-  ExtendibleHTableHeaderPage() = delete;
-  DISALLOW_COPY_AND_MOVE(ExtendibleHTableHeaderPage);
+  ExtendibleHTableHeaderPage() = delete;  //禁止无参构造，确保页内存由缓冲池管理
+  DISALLOW_COPY_AND_MOVE(ExtendibleHTableHeaderPage);  //通过宏删除拷贝/移动构造和赋值，避免重复或意外复制内部大数组
 
   /**
    * After creating a new header page from buffer pool, must call initialize
@@ -77,8 +114,8 @@ class ExtendibleHTableHeaderPage {
   void PrintHeader() const;
 
  private:
-  page_id_t directory_page_ids_[HTABLE_HEADER_ARRAY_SIZE];
-  uint32_t max_depth_;
+  page_id_t directory_page_ids_[HTABLE_HEADER_ARRAY_SIZE];  //定长数组，存放每个目录槽对应的目录页 ID
+  uint32_t max_depth_;  //当前使用的目录深度（决定数组有效前缀长度）
 };
 
 static_assert(sizeof(page_id_t) == 4);

@@ -29,7 +29,7 @@
 namespace bustub {
 
 // NOLINTNEXTLINE
-TEST(ExtendibleHTableTest, DISABLED_BucketPageSampleTest) {
+TEST(ExtendibleHTableTest, BucketPageSampleTest) {
   auto disk_mgr = std::make_unique<DiskManagerUnlimitedMemory>();
   auto bpm = std::make_unique<BufferPoolManager>(5, disk_mgr.get());
 
@@ -87,7 +87,7 @@ TEST(ExtendibleHTableTest, DISABLED_BucketPageSampleTest) {
 }
 
 // NOLINTNEXTLINE
-TEST(ExtendibleHTableTest, DISABLED_HeaderDirectoryPageSampleTest) {
+TEST(ExtendibleHTableTest, HeaderDirectoryPageSampleTest) {
   auto disk_mgr = std::make_unique<DiskManagerUnlimitedMemory>();
   auto bpm = std::make_unique<BufferPoolManager>(5, disk_mgr.get());
 
@@ -188,7 +188,6 @@ TEST(ExtendibleHTableTest, DISABLED_HeaderDirectoryPageSampleTest) {
     |    3    |    3    |    1    |
     ================ END DIRECTORY ================
     */
-
     directory_page->VerifyIntegrity();
     ASSERT_EQ(directory_page->Size(), 4);
     ASSERT_EQ(directory_page->GetBucketPageId(0), bucket_page_id_1);

@@ -8,12 +8,22 @@ class BufferPoolManager;
 class ReadPageGuard;
 class WritePageGuard;
 
+/**
+ * 负者对page进行 pin、unpin，并跟踪是否dirty，他是不区分read/write的基础guard
+ */
 class BasicPageGuard {
  public:
-  BasicPageGuard() = default;
+  BasicPageGuard() = default;  //默认无参构造
 
+  /**
+   * 传入一个 BufferPoolManager* 和Page*，初始化 guard 内部指针
+   */
   BasicPageGuard(BufferPoolManager *bpm, Page *page) : bpm_(bpm), page_(page) {}
 
+  /**
+   * 禁用拷贝构造和拷贝赋值
+   * 避免多个 guard 同时管理同一页面带来重复 unpin
+   */
   BasicPageGuard(const BasicPageGuard &) = delete;
   auto operator=(const BasicPageGuard &) -> BasicPageGuard & = delete;
 
@@ -27,6 +37,7 @@ class BasicPageGuard {
    * example, it should not be possible to call .Drop() on both page
    * guards and have the pin count decrease by 2.
    */
+  //移动构造函数
   BasicPageGuard(BasicPageGuard &&that) noexcept;
 
   /** TODO(P2): Add implementation
@@ -111,6 +122,7 @@ class BasicPageGuard {
   bool is_dirty_{false};
 };
 
+//在 BasicPageGuard 的基础上，额外管理一个读锁（latch）的生命周期
 class ReadPageGuard {
  public:
   ReadPageGuard() = default;

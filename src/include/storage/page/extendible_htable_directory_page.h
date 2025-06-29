@@ -42,11 +42,12 @@ static constexpr uint64_t HTABLE_DIRECTORY_ARRAY_SIZE = 1 << HTABLE_DIRECTORY_MA
 /**
  * Directory Page for extendible hash table.
  */
+//可扩展哈希目录页
 class ExtendibleHTableDirectoryPage {
  public:
   // Delete all constructor / destructor to ensure memory safety
-  ExtendibleHTableDirectoryPage() = delete;
-  DISALLOW_COPY_AND_MOVE(ExtendibleHTableDirectoryPage);
+  ExtendibleHTableDirectoryPage() = delete;  //禁止无参构造，确保页面实例只能通过 BufferPoolManager 分配
+  DISALLOW_COPY_AND_MOVE(ExtendibleHTableDirectoryPage);  //删除拷贝/移动构造和赋值,避免意外复制大数组或重复释放
 
   /**
    * After creating a new directory page from buffer pool, must call initialize
@@ -190,10 +191,10 @@ class ExtendibleHTableDirectoryPage {
   void PrintDirectory() const;
 
  private:
-  uint32_t max_depth_;
-  uint32_t global_depth_;
-  uint8_t local_depths_[HTABLE_DIRECTORY_ARRAY_SIZE];
-  page_id_t bucket_page_ids_[HTABLE_DIRECTORY_ARRAY_SIZE];
+  uint32_t max_depth_;                                      //最大允许的全局深度
+  uint32_t global_depth_;                                   //当前全局深度
+  uint8_t local_depths_[HTABLE_DIRECTORY_ARRAY_SIZE];       //长度512，每个槽的本地深度
+  page_id_t bucket_page_ids_[HTABLE_DIRECTORY_ARRAY_SIZE];  //长度512，每个槽对应的桶页ID
 };
 
 static_assert(sizeof(page_id_t) == 4);

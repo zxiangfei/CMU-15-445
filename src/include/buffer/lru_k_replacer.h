@@ -59,8 +59,6 @@ class LRUKNode {
   void SetEvictable(bool evictable) { is_evictable_ = evictable; }
   auto GetEvictable() const -> bool { return is_evictable_; }
 
-
-
   //——————————————————————————————end—————————————————————————————————————————
  private:
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */

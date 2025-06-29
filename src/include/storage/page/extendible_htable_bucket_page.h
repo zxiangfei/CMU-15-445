@@ -37,8 +37,11 @@ namespace bustub {
 
 static constexpr uint64_t HTABLE_BUCKET_PAGE_METADATA_SIZE = sizeof(uint32_t) * 2;
 
+/**
+ * 计算在一页中，给定每个映射（即 MappingType）大小后，能容纳多少条映射
+ */
 constexpr auto HTableBucketArraySize(uint64_t mapping_type_size) -> uint64_t {
-  return (BUSTUB_PAGE_SIZE - HTABLE_BUCKET_PAGE_METADATA_SIZE) / mapping_type_size;
+  return (BUSTUB_PAGE_SIZE - HTABLE_BUCKET_PAGE_METADATA_SIZE) / mapping_type_size;  //(4096-8)/ mapping_type_size
 };
 
 /**
@@ -48,8 +51,8 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 class ExtendibleHTableBucketPage {
  public:
   // Delete all constructor / destructor to ensure memory safety
-  ExtendibleHTableBucketPage() = delete;
-  DISALLOW_COPY_AND_MOVE(ExtendibleHTableBucketPage);
+  ExtendibleHTableBucketPage() = delete;               //禁止默认构造
+  DISALLOW_COPY_AND_MOVE(ExtendibleHTableBucketPage);  //禁止拷贝和移动
 
   /**
    * After creating a new bucket page from buffer pool, must call initialize
@@ -60,7 +63,6 @@ class ExtendibleHTableBucketPage {
 
   /**
    * Lookup a key
-   *
    * @param key key to lookup
    * @param[out] value value to set
    * @param cmp the comparator
@@ -131,10 +133,14 @@ class ExtendibleHTableBucketPage {
    */
   void PrintBucket() const;
 
+  void Clear() {
+    size_ = 0;  //清空当前有效映射数
+  }
+
  private:
-  uint32_t size_;
-  uint32_t max_size_;
-  MappingType array_[HTableBucketArraySize(sizeof(MappingType))];
+  uint32_t size_;                                                  //当前有效映射数
+  uint32_t max_size_;                                              //最大映射数
+  MappingType array_[HTableBucketArraySize(sizeof(MappingType))];  //固定长度存储映射的数组
 };
 
 }  // namespace bustub
