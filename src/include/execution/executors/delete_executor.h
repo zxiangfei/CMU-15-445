@@ -1,3 +1,11 @@
+/*
+ * @Author: zxiangfei 2464257291@qq.com
+ * @Date: 2025-06-15 15:26:01
+ * @LastEditors: zxiangfei 2464257291@qq.com
+ * @LastEditTime: 2025-07-01 12:45:25
+ * @FilePath: /CMU-15-445/src/include/execution/executors/delete_executor.h
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 //===----------------------------------------------------------------------===//
 //
 //                         BusTub
@@ -27,6 +35,7 @@ namespace bustub {
  * DeletedExecutor executes a delete on a table.
  * Deleted values are always pulled from a child.
  */
+//执行表删除的算子，删除的值来自子执行器
 class DeleteExecutor : public AbstractExecutor {
  public:
   /**
@@ -61,5 +70,8 @@ class DeleteExecutor : public AbstractExecutor {
 
   /** The child executor from which RIDs for deleted tuples are pulled */
   std::unique_ptr<AbstractExecutor> child_executor_;
+
+  bool deleted_;  // 是否已经删除过，防止重复删除
+  const TableInfo *table_info_;   //表元信息，包含表的模式、名称、表堆等
 };
 }  // namespace bustub

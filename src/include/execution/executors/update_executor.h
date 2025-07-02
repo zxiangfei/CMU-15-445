@@ -28,6 +28,7 @@ namespace bustub {
  * UpdateExecutor executes an update on a table.
  * Updated values are always pulled from a child.
  */
+//执行表更新的算子，更新的值总是从子算子中获取
 class UpdateExecutor : public AbstractExecutor {
   friend class UpdatePlanNode;
 
@@ -59,12 +60,14 @@ class UpdateExecutor : public AbstractExecutor {
 
  private:
   /** The update plan node to be executed */
-  const UpdatePlanNode *plan_;
+  const UpdatePlanNode *plan_;  //存储传入的 UpdatePlanNode，从中读取表 OID、更新子句等信息
 
   /** Metadata identifying the table that should be updated */
-  const TableInfo *table_info_;
+  const TableInfo *table_info_;   //表元信息，包含表的模式、名称、表堆等
 
   /** The child executor to obtain value from */
-  std::unique_ptr<AbstractExecutor> child_executor_;
+  std::unique_ptr<AbstractExecutor> child_executor_;   //子执行器，从中获取需要更新的行
+
+  bool updated_;  // 是否已经更新过了
 };
 }  // namespace bustub

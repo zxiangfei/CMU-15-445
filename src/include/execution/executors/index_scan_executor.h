@@ -1,3 +1,11 @@
+/*
+ * @Author: zxiangfei 2464257291@qq.com
+ * @Date: 2025-06-15 15:26:01
+ * @LastEditors: zxiangfei 2464257291@qq.com
+ * @LastEditTime: 2025-07-01 19:00:43
+ * @FilePath: /CMU-15-445/src/include/execution/executors/index_scan_executor.h
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 //===----------------------------------------------------------------------===//
 //
 //                         BusTub
@@ -25,7 +33,7 @@ namespace bustub {
 /**
  * IndexScanExecutor executes an index scan over a table.
  */
-
+//本执行器通过索引实现对表的额快速扫描
 class IndexScanExecutor : public AbstractExecutor {
  public:
   /**
@@ -43,6 +51,11 @@ class IndexScanExecutor : public AbstractExecutor {
 
  private:
   /** The index scan plan node to be executed. */
-  const IndexScanPlanNode *plan_;
+  const IndexScanPlanNode *plan_; //保存构造函数传入的计划节点
+
+  HashTableIndexForTwoIntegerColumn *htable; //索引对象用哈希实现
+  uint64_t cur_idx_; // 当前索引位置
+  std::vector<RID> result_rids_; //存储哈希索引扫描符合的结果
+  TableHeap *table_heap_; //表堆对象，用于存储表数据
 };
 }  // namespace bustub
