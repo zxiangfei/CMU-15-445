@@ -10,14 +10,15 @@
 #include "common/util/hash_util.h"
 
 /** @brief Capacity of the bitset stream. */
-#define BITSET_CAPACITY 64
+#define BITSET_CAPACITY 64  //哈希值64位
 
 namespace bustub {
 
 template <typename KeyType>
 class HyperLogLog {
   /** @brief Constant for HLL. */
-  static constexpr double CONSTANT = 0.79402;
+  static constexpr double CONSTANT =
+      0.79402;  //估计公式中的常数   cradinality = CONSTANT * m^2 / sum(2^-R_i) 其中m为寄存器个数，R_i为寄存器i的值
 
  public:
   /** @brief Disable default constructor. */
@@ -83,6 +84,9 @@ class HyperLogLog {
   size_t cardinality_;
 
   /** @todo (student) can add their data structures that support HyperLogLog */
+  int16_t n_bits_;                   //前缀位数b
+  size_t m_;                         //寄存器个数，等于2^b
+  std::vector<uint64_t> registers_;  //寄存器数组，大小为 1 << n_bits_，即2^b个寄存器
 };
 
 }  // namespace bustub

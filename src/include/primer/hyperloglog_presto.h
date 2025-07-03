@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "common/util/hash_util.h"
+#include "primer/hyperloglog.h"
 
 /** @brief Dense bucket size. */
 #define DENSE_BUCKET_SIZE 4
@@ -54,6 +55,8 @@ class HyperLogLogPresto {
   /** @brief Function to compute cardinality. */
   auto ComputeCardinality() -> void;
 
+  auto ComputeBinary(const hash_t &hash) const -> std::bitset<BITSET_CAPACITY>;
+
  private:
   /** @brief Calculate Hash.
    *
@@ -83,6 +86,8 @@ class HyperLogLogPresto {
   uint64_t cardinality_;
 
   // TODO(student) - can add more data structures as required
+  int16_t n_leading_bits_;  //前缀位数 b
+  size_t num_buckets_;      //寄存器个数，等于2^b
 };
 
 }  // namespace bustub
