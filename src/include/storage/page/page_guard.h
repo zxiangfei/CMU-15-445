@@ -31,6 +31,11 @@ class FrameHeader;
  * With `ReadPageGuard`s, there can be multiple threads that share read access to a page's data. However, the existence
  * of any `ReadPageGuard` on a page implies that no thread can be mutating the page's data.
  */
+/**
+ * 对页面获取读锁保护
+ * 允许多个线程共享读访问权限，但不能有线程修改页面数据
+ * 只允许 BufferPoolManager 构造有效的 ReadPageGuard
+ */
 class ReadPageGuard {
   /** @brief Only the buffer pool manager is allowed to construct a valid `ReadPageGuard.` */
   friend class BufferPoolManager;
@@ -47,36 +52,49 @@ class ReadPageGuard {
    *
    * In other words, the only way to get a valid `ReadPageGuard` is through the buffer pool manager.
    */
-  ReadPageGuard() = default;
+  ReadPageGuard() = default;  //默认构造：创建一个 无效 的 guard（is_valid_==false），只是为了支持后续的移动赋值。
 
+  //禁用拷贝，不允许两个 guard 同时管理同一把锁
   ReadPageGuard(const ReadPageGuard &) = delete;
   auto operator=(const ReadPageGuard &) -> ReadPageGuard & = delete;
+
+  //支持 移动语义，将锁或引用从一个 guard 转移到另一个
   ReadPageGuard(ReadPageGuard &&that) noexcept;
   auto operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard &;
+
+  //返回所管理页面的 ID
   auto GetPageId() const -> page_id_t;
+  //返回所管理页面的数据指针（只读）
   auto GetData() const -> const char *;
+
+  //模板方法，直接将数据指针转换为用户定义的结构 T*（方便按结构体访问页面）
   template <class T>
   auto As() const -> const T * {
     return reinterpret_cast<const T *>(GetData());
   }
+
+  //查询该页在内存中是否已被修改（dirty flag，由 FrameHeader 维护）
   auto IsDirty() const -> bool;
+  //手动释放 guard：相当于提前调用析构逻辑，解锁并更新替换器状态
   void Drop();
+  //析构时自动执行 Drop()（如果 is_valid_ == true），解锁并通知 LRUKReplacer 该帧可替换
   ~ReadPageGuard();
 
  private:
   /** @brief Only the buffer pool manager is allowed to construct a valid `ReadPageGuard.` */
+  // 只允许 BufferPoolManager 构造有效的 ReadPageGuard
   explicit ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame, std::shared_ptr<LRUKReplacer> replacer,
                          std::shared_ptr<std::mutex> bpm_latch);
 
   /** @brief The page ID of the page we are guarding. */
-  page_id_t page_id_;
+  page_id_t page_id_;  //当前页 ID
 
   /**
    * @brief The frame that holds the page this guard is protecting.
    *
    * Almost all operations of this page guard should be done via this shared pointer to a `FrameHeader`.
    */
-  std::shared_ptr<FrameHeader> frame_;
+  std::shared_ptr<FrameHeader> frame_;  //指向帧头，里面拥有实际的数据指针和 pin count/dirty flag
 
   /**
    * @brief A shared pointer to the buffer pool's replacer.
@@ -84,7 +102,7 @@ class ReadPageGuard {
    * Since the buffer pool cannot know when this `ReadPageGuard` gets destructed, we maintain a pointer to the buffer
    * pool's replacer in order to set the frame as evictable on destruction.
    */
-  std::shared_ptr<LRUKReplacer> replacer_;
+  std::shared_ptr<LRUKReplacer> replacer_;  // LRUK 替换器，用于管理帧的可替换状态
 
   /**
    * @brief A shared pointer to the buffer pool's latch.
@@ -92,7 +110,7 @@ class ReadPageGuard {
    * Since the buffer pool cannot know when this `ReadPageGuard` gets destructed, we maintain a pointer to the buffer
    * pool's latch for when we need to update the frame's eviction state in the buffer pool replacer.
    */
-  std::shared_ptr<std::mutex> bpm_latch_;
+  std::shared_ptr<std::mutex> bpm_latch_;  //缓冲池的互斥锁，用于保护替换器状态更新
 
   /**
    * @brief The validity flag for this `ReadPageGuard`.
@@ -104,7 +122,7 @@ class ReadPageGuard {
    * If we did not maintain this flag, then the move constructor / move assignment operators could attempt to destruct
    * or `Drop()` invalid members, causing a segmentation fault.
    */
-  bool is_valid_{false};
+  bool is_valid_{false};  //标志此 guard 是否处于“已初始化且未释放”状态，防止对无效 guard 误操作
 
   /**
    * TODO(P1): You may add any fields under here that you think are necessary.
@@ -112,6 +130,8 @@ class ReadPageGuard {
    * If you want extra (non-existent) style points, and you want to be extra fancy, then you can look into the
    * `std::shared_lock` type and use that for the latching mechanism instead of manually calling `lock` and `unlock`.
    */
+
+  std::shared_lock<std::shared_mutex> lock_;
 };
 
 /**
@@ -148,12 +168,20 @@ class WritePageGuard {
   WritePageGuard(WritePageGuard &&that) noexcept;
   auto operator=(WritePageGuard &&that) noexcept -> WritePageGuard &;
   auto GetPageId() const -> page_id_t;
-  auto GetData() const -> const char *;
+
+  auto GetData() const -> const char *;  //只读指针
+  auto GetDataMut() -> char *;           //可写指针
+
+  /**
+   * 提供读数据的类型转换
+   */
   template <class T>
   auto As() const -> const T * {
     return reinterpret_cast<const T *>(GetData());
   }
-  auto GetDataMut() -> char *;
+  /**
+   *提供写数据的类型转换
+   */
   template <class T>
   auto AsMut() -> T * {
     return reinterpret_cast<T *>(GetDataMut());
@@ -211,6 +239,8 @@ class WritePageGuard {
    * If you want extra (non-existent) style points, and you want to be extra fancy, then you can look into the
    * `std::unique_lock` type and use that for the latching mechanism instead of manually calling `lock` and `unlock`.
    */
+
+  std::unique_lock<std::shared_mutex> lock_;
 };
 
 }  // namespace bustub

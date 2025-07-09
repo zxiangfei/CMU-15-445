@@ -26,10 +26,25 @@ namespace bustub {
  * @param replacer A shared pointer to the buffer pool manager's replacer.
  * @param bpm_latch A shared pointer to the buffer pool manager's latch.
  */
+/**
+ * 有效的 ReadPageGuard 构造函数
+ * 只允许 BufferPoolManager 调用
+ */
 ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame,
                              std::shared_ptr<LRUKReplacer> replacer, std::shared_ptr<std::mutex> bpm_latch)
-    : page_id_(page_id), frame_(std::move(frame)), replacer_(std::move(replacer)), bpm_latch_(std::move(bpm_latch)) {
-  UNIMPLEMENTED("TODO(P1): Add implementation.");
+    : page_id_(page_id),
+      frame_(std::move(frame)),
+      replacer_(std::move(replacer)),
+      bpm_latch_(std::move(bpm_latch)),
+      lock_(frame_->rwlatch_) {
+  // 以共享锁方式锁住帧头，允许多个读护卫同时存在
+  // {
+  //   std::lock_guard<std::mutex> bpm_lock(*bpm_latch_);  // 锁住缓冲池管理器的互斥锁，确保替换器状态更新是线程安全的
+  //   frame_->pin_count_++;  // 增加 pin count，表示这个帧正在被使用
+  //   replacer_->SetEvictable(frame_->frame_id_, false);  // 设置该帧为不可驱逐状态，因为有读护卫在使用
+  // }
+
+  is_valid_ = true;  // 设置为有效状态，表示这个 ReadPageGuard 已经被正确初始化
 }
 
 /**
@@ -47,7 +62,15 @@ ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> fra
  *
  * @param that The other page guard.
  */
-ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {}
+ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept
+    : page_id_(that.page_id_),
+      frame_(std::move(that.frame_)),
+      replacer_(std::move(that.replacer_)),
+      bpm_latch_(std::move(that.bpm_latch_)),
+      is_valid_(that.is_valid_),
+      lock_(std::move(that.lock_)) {
+  that.is_valid_ = false;  // Invalidate the moved-from guard
+}
 
 /**
  * @brief The move assignment operator for `ReadPageGuard`.
@@ -66,7 +89,26 @@ ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {}
  * @param that The other page guard.
  * @return ReadPageGuard& The newly valid `ReadPageGuard`.
  */
-auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & { return *this; }
+auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & {
+  if (this != &that) {
+    // 如果当前 guard 有效，先释放资源
+    if (is_valid_) {
+      Drop();  // 释放资源，解锁帧头并更新替换器状态
+    }
+
+    // 移动字段
+    page_id_ = that.page_id_;
+    frame_ = std::move(that.frame_);
+    replacer_ = std::move(that.replacer_);
+    bpm_latch_ = std::move(that.bpm_latch_);
+    lock_ = std::move(that.lock_);
+    is_valid_ = that.is_valid_;
+
+    // 使原来的 guard 无效
+    that.is_valid_ = false;
+  }
+  return *this;
+}
 
 /**
  * @brief Gets the page ID of the page this guard is protecting.
@@ -103,7 +145,22 @@ auto ReadPageGuard::IsDirty() const -> bool {
  *
  * TODO(P1): Add implementation.
  */
-void ReadPageGuard::Drop() { UNIMPLEMENTED("TODO(P1): Add implementation."); }
+void ReadPageGuard::Drop() {
+  if (!is_valid_) {
+    return;  // 如果是无效的 guard，直接返回
+  }
+
+  {
+    std::lock_guard<std::mutex> bpm_lock(*bpm_latch_);  // 锁住缓冲池管理器的互斥锁，确保替换器状态更新是线程安全的
+    frame_->pin_count_--;
+    if (frame_->pin_count_ == 0) {
+      replacer_->SetEvictable(frame_->frame_id_, true);  // 设置该帧为可驱逐状态，因为读护卫不再使用它
+    }
+  }
+  lock_.unlock();  // 解锁帧头，允许其他读护卫或写护卫访问这个帧
+
+  is_valid_ = false;  // 设置为无效状态，表示这个 ReadPageGuard 已经被释放
+}
 
 /** @brief The destructor for `ReadPageGuard`. This destructor simply calls `Drop()`. */
 ReadPageGuard::~ReadPageGuard() { Drop(); }
@@ -126,8 +183,21 @@ ReadPageGuard::~ReadPageGuard() { Drop(); }
  */
 WritePageGuard::WritePageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame,
                                std::shared_ptr<LRUKReplacer> replacer, std::shared_ptr<std::mutex> bpm_latch)
-    : page_id_(page_id), frame_(std::move(frame)), replacer_(std::move(replacer)), bpm_latch_(std::move(bpm_latch)) {
-  UNIMPLEMENTED("TODO(P1): Add implementation.");
+    : page_id_(page_id),
+      frame_(std::move(frame)),
+      replacer_(std::move(replacer)),
+      bpm_latch_(std::move(bpm_latch)),
+      lock_(frame_->rwlatch_) {  // 以独占锁方式锁住帧头，确保只有一个写护卫可以访问
+
+  // 以独占锁方式锁住帧头，确保只有一个写护卫可以访问
+  // {
+  //   std::lock_guard<std::mutex> bpm_lock(*bpm_latch_);  // 锁住缓冲池管理器的互斥锁，确保替换器状态更新是线程安全的
+  //   frame_->pin_count_++;  // 增加 pin count，表示这个帧正在被使用
+  //   frame_->is_dirty_ = true;  // 设置该帧为脏页，因为有写护卫在使用它
+  //   replacer_->SetEvictable(frame_->frame_id_, false);  // 设置该帧为不可驱逐状态，因为有写护卫在使用
+  // }
+
+  is_valid_ = true;  // 设置为有效状态，表示这个 WritePageGuard 已经被正确初始化
 }
 
 /**
@@ -145,7 +215,15 @@ WritePageGuard::WritePageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> f
  *
  * @param that The other page guard.
  */
-WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept {}
+WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept
+    : page_id_(that.page_id_),
+      frame_(std::move(that.frame_)),
+      replacer_(std::move(that.replacer_)),
+      bpm_latch_(std::move(that.bpm_latch_)),
+      is_valid_(that.is_valid_),
+      lock_(std::move(that.lock_)) {
+  that.is_valid_ = false;  // 清除原有的 guard 的有效状态，防止双重释放
+}
 
 /**
  * @brief The move assignment operator for `WritePageGuard`.
@@ -164,7 +242,26 @@ WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept {}
  * @param that The other page guard.
  * @return WritePageGuard& The newly valid `WritePageGuard`.
  */
-auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard & { return *this; }
+auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard & {
+  if (this != &that) {
+    // 如果当前 guard 有效，先释放资源
+    if (is_valid_) {
+      Drop();  // 释放资源，解锁帧头并更新替换器状态
+    }
+
+    // 移动字段
+    page_id_ = that.page_id_;
+    frame_ = std::move(that.frame_);
+    replacer_ = std::move(that.replacer_);
+    bpm_latch_ = std::move(that.bpm_latch_);
+    lock_ = std::move(that.lock_);
+    is_valid_ = that.is_valid_;
+
+    // 使原来的 guard 无效
+    that.is_valid_ = false;
+  }
+  return *this;
+}
 
 /**
  * @brief Gets the page ID of the page this guard is protecting.
@@ -209,7 +306,22 @@ auto WritePageGuard::IsDirty() const -> bool {
  *
  * TODO(P1): Add implementation.
  */
-void WritePageGuard::Drop() { UNIMPLEMENTED("TODO(P1): Add implementation."); }
+void WritePageGuard::Drop() {
+  if (!is_valid_) {
+    return;  // 如果是无效的 guard，直接返回
+  }
+
+  {
+    std::lock_guard<std::mutex> bpm_lock(*bpm_latch_);  // 锁住缓冲池管理器的互斥锁，确保替换器状态更新是线程安全的
+    frame_->pin_count_--;
+    if (frame_->pin_count_ == 0) {
+      replacer_->SetEvictable(frame_->frame_id_, true);  // 设置该帧为可驱逐状态，因为写护卫不再使用它
+    }
+  }
+  lock_.unlock();  // 解锁帧头，允许其他读护卫或写护卫访问这个帧
+
+  is_valid_ = false;  // 设置为无效状态，表示这个 WritePageGuard 已经被释放
+}
 
 /** @brief The destructor for `WritePageGuard`. This destructor simply calls `Drop()`. */
 WritePageGuard::~WritePageGuard() { Drop(); }
