@@ -169,6 +169,7 @@ auto BufferPoolManager::NewPage() -> page_id_t {
     //删除
     if (old_page_id != INVALID_PAGE_ID) {
       page_table_.erase(old_page_id);
+      disk_scheduler_->DeallocatePage(old_page_id);  //从磁盘上删除页面
     }
     //如果旧页是脏的，需要写回磁盘
     if (frames_[frame_id]->is_dirty_) {

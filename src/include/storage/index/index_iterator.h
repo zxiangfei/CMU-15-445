@@ -1,3 +1,12 @@
+/*
+ * @Author: zxiangfei 2464257291@qq.com
+ * @Date: 2025-07-30 16:33:33
+ * @LastEditors: zxiangfei 2464257291@qq.com
+ * @LastEditTime: 2025-07-30 16:38:10
+ * @FilePath: /CMU-15-445/src/include/storage/index/index_iterator.h
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 //===----------------------------------------------------------------------===//
 //
 //                         CMU-DB Project (15-445/645)
@@ -25,6 +34,11 @@ class IndexIterator {
  public:
   // you may define your own constructor based on your member variables
   IndexIterator(BufferPoolManager *bpm, ReadPageGuard page_guard, int index);
+
+  IndexIterator(IndexIterator &&) noexcept = default;
+  auto operator=(IndexIterator &&) noexcept -> IndexIterator & = default;
+
+  IndexIterator();   // 默认构造函数
   ~IndexIterator();  // NOLINT
 
   auto IsEnd() const -> bool;

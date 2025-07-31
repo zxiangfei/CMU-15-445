@@ -1,3 +1,12 @@
+/*
+ * @Author: zxiangfei 2464257291@qq.com
+ * @Date: 2025-07-02 22:24:46
+ * @LastEditors: zxiangfei 2464257291@qq.com
+ * @LastEditTime: 2025-07-18 17:46:21
+ * @FilePath: /CMU-15-445/src/include/execution/executors/insert_executor.h
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 //===----------------------------------------------------------------------===//
 //
 //                         BusTub
@@ -57,6 +66,10 @@ class InsertExecutor : public AbstractExecutor {
  private:
   /** The insert plan node to be executed*/
   const InsertPlanNode *plan_;
+
+  // 自定义添加的成员变量
+  bool inserted_;                                     // 是否已经插入过数据
+  std::unique_ptr<AbstractExecutor> child_executor_;  // 子执行器，用于获取要插入的元组
 };
 
 }  // namespace bustub

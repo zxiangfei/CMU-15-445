@@ -54,5 +54,7 @@ class LimitExecutor : public AbstractExecutor {
 
   /** The child executor from which tuples are obtained */
   std::unique_ptr<AbstractExecutor> child_executor_;
+
+  size_t out_count_ = 0;  // 记录输出数量，用于限制比较
 };
 }  // namespace bustub

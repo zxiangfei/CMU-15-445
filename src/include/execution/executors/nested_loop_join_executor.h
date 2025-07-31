@@ -1,3 +1,12 @@
+/*
+ * @Author: zxiangfei 2464257291@qq.com
+ * @Date: 2025-06-15 15:26:01
+ * @LastEditors: zxiangfei 2464257291@qq.com
+ * @LastEditTime: 2025-07-28 14:45:51
+ * @FilePath: /CMU-15-445/src/include/execution/executors/nested_loop_join_executor.h
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 //===----------------------------------------------------------------------===//
 //
 //                         BusTub
@@ -55,6 +64,14 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
  private:
   /** The NestedLoopJoin plan node to be executed. */
   const NestedLoopJoinPlanNode *plan_;
+
+  //自定义成员变量
+  std::unique_ptr<AbstractExecutor> left_executor_;   //左侧执行器
+  std::unique_ptr<AbstractExecutor> right_executor_;  //右侧执行器
+  Tuple left_tuple_;                                  // 保存当前左侧元组
+  Tuple right_tuple_;                                 // 保存当前遍历到的右侧元组
+  bool left_tuple_fetched_;                           //是否已获取左侧元组
+  bool left_matched_;                                 //当前左侧元组是否至少匹配一个右侧元组
 };
 
 }  // namespace bustub

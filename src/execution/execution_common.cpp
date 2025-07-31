@@ -22,10 +22,49 @@ namespace bustub {
 
 TupleComparator::TupleComparator(std::vector<OrderBy> order_bys) : order_bys_(std::move(order_bys)) {}
 
-auto TupleComparator::operator()(const SortEntry &entry_a, const SortEntry &entry_b) const -> bool { return false; }
+auto TupleComparator::operator()(const SortEntry &entry_a, const SortEntry &entry_b) const -> bool {
+  const auto &key_a = entry_a.first;
+  const auto &key_b = entry_b.first;
+
+  for (size_t i = 0; i < order_bys_.size(); ++i) {
+    const auto &order_by = order_bys_[i];
+    const auto &value_a = key_a[i];
+    const auto &value_b = key_b[i];
+
+    bool asc = (order_by.first == OrderByType::ASC || order_by.first == OrderByType::DEFAULT);
+    // NULL 处理
+    if (value_a.IsNull() && value_b.IsNull()) {
+      continue;
+    }
+    if (value_a.IsNull()) {
+      return !asc;
+    }
+    if (value_b.IsNull()) {
+      return asc;
+    }
+    // 都不为空，再按照 < 和 > 做比较
+    if (value_a.CompareLessThan(value_b) == CmpBool::CmpTrue) {
+      return asc;
+    }
+    if (value_b.CompareLessThan(value_a) == CmpBool::CmpTrue) {
+      return !asc;
+    }
+    // 相等则下一 key
+  }
+
+  return false;  // 如果所有排序键都相等，则认为不小于
+}
 
 auto GenerateSortKey(const Tuple &tuple, const std::vector<OrderBy> &order_bys, const Schema &schema) -> SortKey {
-  return {};
+  SortKey key;
+  key.reserve(order_bys.size());  // 预留空间以提高性能
+
+  for (const auto &order_by : order_bys) {
+    const auto &expr = order_by.second;
+    key.push_back(expr->Evaluate(&tuple, schema));
+  }
+
+  return key;
 }
 
 /**

@@ -15,6 +15,7 @@
 #include <memory>
 #include <utility>
 
+#include "common/util/hash_util.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/hash_join_plan.h"
@@ -54,6 +55,54 @@ class HashJoinExecutor : public AbstractExecutor {
  private:
   /** The HashJoin plan node to be executed. */
   const HashJoinPlanNode *plan_;
+
+  // 连接键的hash值获取类
+  struct HashKey {
+    auto operator()(const std::vector<Value> &keys) const -> std::size_t {
+      std::size_t hash = 0;
+      for (const auto &value : keys) {
+        hash = HashUtil::CombineHashes(hash, HashUtil::HashValue(&value));
+      }
+      return hash;
+    }
+  };
+
+  // 连接键的相等比较类
+  struct HashKeyEqual {
+    auto operator()(const std::vector<Value> &lhs, const std::vector<Value> &rhs) const -> bool {
+      if (lhs.size() != rhs.size()) {
+        return false;
+      }
+      for (size_t i = 0; i < lhs.size(); ++i) {
+        if (!lhs[i].CompareExactlyEquals(rhs[i])) {
+          return false;
+        }
+      }
+      return true;
+    }
+  };
+
+  // 哈希表存储连接键和对应的元组
+  std::unordered_map<std::vector<Value>, std::vector<Tuple>, HashKey, HashKeyEqual> hash_table_;
+
+  // 左右子执行器
+  std::unique_ptr<AbstractExecutor> left_child_;
+  std::unique_ptr<AbstractExecutor> right_child_;
+
+  // 当前左子执行器的元组
+  Tuple left_tuple_;
+
+  // 当前与左子执行器元组匹配的所有右子执行器元组
+  std::vector<Tuple> right_tuples_;
+
+  // 当前右子执行器元组的索引
+  size_t right_tuple_index_{0};
+
+  // 是否取得了左子执行器的元组
+  bool left_tuple_fetched_{false};
+
+  // 当前左子执行器元组是否有匹配的右子执行器元组
+  bool has_matching_right_tuples_{false};
 };
 
 }  // namespace bustub

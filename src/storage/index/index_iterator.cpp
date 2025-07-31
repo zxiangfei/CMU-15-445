@@ -2,7 +2,7 @@
  * @Author: zxiangfei 2464257291@qq.com
  * @Date: 2025-07-02 22:24:46
  * @LastEditors: zxiangfei 2464257291@qq.com
- * @LastEditTime: 2025-07-17 11:04:56
+ * @LastEditTime: 2025-07-20 21:16:33
  * @FilePath: /CMU-15-445/src/storage/index/index_iterator.cpp
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -20,6 +20,10 @@ namespace bustub {
  * NOTE: you can change the destructor/constructor method here
  * set your own input parameters
  */
+
+INDEX_TEMPLATE_ARGUMENTS
+INDEXITERATOR_TYPE::IndexIterator() = default;
+
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *bpm, ReadPageGuard page_guard, int index)
     : bpm_(bpm), page_guard_(std::move(page_guard)), index_(index) {}

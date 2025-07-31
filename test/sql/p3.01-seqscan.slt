@@ -55,3 +55,4 @@ select col2 + col1 from test_simple_seq_2;
 24
 26
 28
+

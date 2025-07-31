@@ -1,3 +1,12 @@
+/*
+ * @Author: zxiangfei 2464257291@qq.com
+ * @Date: 2025-07-02 22:24:46
+ * @LastEditors: zxiangfei 2464257291@qq.com
+ * @LastEditTime: 2025-07-20 22:29:12
+ * @FilePath: /CMU-15-445/src/include/execution/executors/seq_scan_executor.h
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 //===----------------------------------------------------------------------===//
 //
 //                         BusTub
@@ -50,5 +59,10 @@ class SeqScanExecutor : public AbstractExecutor {
  private:
   /** The sequential scan plan node to be executed */
   const SeqScanPlanNode *plan_;
+
+  //自定义添加的成员变量
+  TableHeap *table_heap_{nullptr};          // 要扫描的table heap
+  std::vector<RID> rids_;                   // 记录table heap中的RID
+  std::vector<RID>::iterator current_rid_;  // 当前扫描到的RID迭代器
 };
 }  // namespace bustub

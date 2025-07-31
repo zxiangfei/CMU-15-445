@@ -1,3 +1,12 @@
+/*
+ * @Author: zxiangfei 2464257291@qq.com
+ * @Date: 2025-07-02 22:24:46
+ * @LastEditors: zxiangfei 2464257291@qq.com
+ * @LastEditTime: 2025-07-18 18:13:47
+ * @FilePath: /CMU-15-445/src/include/execution/executors/update_executor.h
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 //===----------------------------------------------------------------------===//
 //
 //                         BusTub
@@ -62,9 +71,12 @@ class UpdateExecutor : public AbstractExecutor {
   const UpdatePlanNode *plan_;
 
   /** Metadata identifying the table that should be updated */
-  const TableInfo *table_info_;
+  // const TableInfo *table_info_;
 
   /** The child executor to obtain value from */
   std::unique_ptr<AbstractExecutor> child_executor_;
+
+  // 自定义添加的成员变量
+  bool updated_;  // 是否已经更新过数据
 };
 }  // namespace bustub
