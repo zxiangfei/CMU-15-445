@@ -215,6 +215,7 @@ auto CollectUndoLogs(RID rid, const TupleMeta &base_meta, const Tuple &base_tupl
  * @return The generated undo log.
  */
 /**
+ * 某个事务第一次就该某条记录调用
  * 生成一个新的 undo 日志，表示事务第一次尝试修改这个元组时的状态
  * @param schema 表的模式
  * @param base_tuple 更新前的基础元组，从表堆中检索到的元组。若是插入则为nullptr
@@ -225,7 +226,43 @@ auto CollectUndoLogs(RID rid, const TupleMeta &base_meta, const Tuple &base_tupl
  */
 auto GenerateNewUndoLog(const Schema *schema, const Tuple *base_tuple, const Tuple *target_tuple, timestamp_t ts,
                         UndoLink prev_version) -> UndoLog {
-   UNIMPLEMENTED("not implemented");
+  // 1. 如果为insert的情况
+  // (目前在insert_executor中，没有使用该函数，
+  // 即在一般的insert时，不需要生成UndoLog，
+  // 但是在将元组插入到被删除的tuple时，会需要生成UndoLog。所以这里生成一个空的UndoLog)
+  // 如果是在被删除的tuple上插入，
+  // 生成的UndoLog 会记录{插入之前是删除的，修改了所有字段，修改之前值空tuple，ts, prev_version}
+  if (base_tuple == nullptr) {
+    std::vector<bool> modified_fields(schema->GetColumnCount(), true);
+    return {true, modified_fields, Tuple{}, ts, prev_version};
+  }
+
+  // 2. 如果为delete的情况
+  // 生成的UndoLog会记录{删除之前是存在的，修改了所有字段，修改之前值为base_tuple，ts, prev_version}
+  if (target_tuple == nullptr) {
+    std::vector<bool> modified_fields(schema->GetColumnCount(), true);
+    return {false, modified_fields, *base_tuple, ts, prev_version};
+  }
+
+  // 3. 如果为update的情况
+  std::vector<bool> modified_fields;
+  std::vector<Value> values;
+  std::vector<Column> columns;
+
+  // 遍历每个字段判断是否相同，不相同表示修改，modified_fields[i]标记为修改 并把修改前字段的值放入values中
+  for (int i = 0; i < static_cast<int>(schema->GetColumnCount()); i++) {
+    if (base_tuple->GetValue(schema, i).CompareExactlyEquals(target_tuple->GetValue(schema, i))) {
+      modified_fields.emplace_back(false);
+    } else {
+      modified_fields.emplace_back(true);
+      values.emplace_back(base_tuple->GetValue(schema, i));
+      columns.emplace_back(schema->GetColumn(i));
+    }
+  }
+  Schema new_schema{columns};
+  Tuple tuple{values, &new_schema};
+  tuple.SetRid(base_tuple->GetRid());
+  return {false, modified_fields, tuple, ts, prev_version};
 }
 
 /**
@@ -238,9 +275,76 @@ auto GenerateNewUndoLog(const Schema *schema, const Tuple *base_tuple, const Tup
  * @param log The original undo log.
  * @return The updated undo log.
  */
+/**
+ * 某个事务再次修改同一条记录时调用
+ * 把新改动与“那一条”旧的 UndoLog 合并为仍然只有一条 UndoLog
+ * @param schema 表的模式
+ * @param base_tuple 更新前的基础元组，从表堆中检索到的元组。之前已经删除为nullptr
+ * @param target_tuple 更新后的目标元组。如果此条修改是删除操作为nullptr
+ * @param log 原始的 undo 日志
+ * @return 更新后的 undo 日志
+ */
 auto GenerateUpdatedUndoLog(const Schema *schema, const Tuple *base_tuple, const Tuple *target_tuple,
                             const UndoLog &log) -> UndoLog {
-   UNIMPLEMENTED("not implemented");
+  // 如果log为insert后的空UndoLog，则按照特殊情况处理，返回的结果依旧为空UndoLog
+  if (log.is_deleted_) {
+    return log;
+  }
+  // 先将原本的tuple重建出来
+  std::vector<Column> columns;
+  for (int i = 0; i < static_cast<int>(log.modified_fields_.size()); i++) {
+    if (log.modified_fields_[i]) {
+      columns.emplace_back(schema->GetColumn(i));
+    }
+  }
+  Schema undo_log_schema(columns);  // 生成一个新的schema，包含了所有修改的列
+
+  // 如果是删除
+  if(target_tuple == nullptr){
+    std::vector<bool> modified_fields(schema->GetColumnCount(), true);
+
+    // 生成旧的元组
+    std::vector<Value> values;
+    int idx = 0;
+    for (int i = 0; i < static_cast<int>(log.modified_fields_.size()); i++) {
+      if (log.modified_fields_[i]) {
+        values.emplace_back(log.tuple_.GetValue(&undo_log_schema, idx++));
+      } else {
+        values.emplace_back(base_tuple->GetValue(schema, i));
+      }
+    }
+    Tuple old_tuple = {values, schema};
+    old_tuple.SetRid(log.tuple_.GetRid());
+    return {log.is_deleted_, modified_fields, old_tuple, log.ts_, log.prev_version_};
+  }
+
+  // 不是删除就更新 undo_log
+  std::vector<bool> modified_fields;
+  std::vector<Value> values;
+  columns.clear();
+  int idx = 0;
+  for (int i = 0; i < static_cast<int>(log.modified_fields_.size()); i++) {
+    // 若为false，表示与base_tuple中对应列值一致，则可以直接用base_tuple的对应值进行比较
+    if (!log.modified_fields_[i]) {
+      if (base_tuple->GetValue(schema, i).CompareExactlyEquals(target_tuple->GetValue(schema, i))) {
+        modified_fields.emplace_back(false);
+      } else {
+        modified_fields.emplace_back(true);
+        values.emplace_back(base_tuple->GetValue(schema, i));
+        columns.emplace_back(schema->GetColumn(i));
+      }
+    } else {
+      // 若为true，则可以在undo_log中直接获取上一版本的值
+      modified_fields.push_back(true);
+      values.emplace_back(log.tuple_.GetValue(&undo_log_schema, idx++));
+      columns.emplace_back(schema->GetColumn(i));
+    }
+  }
+  Schema new_schema{columns};
+  Tuple tuple{values, &new_schema};
+  // 为了方便garbage collection的设计
+  tuple.SetRid(log.tuple_.GetRid());
+  return {log.is_deleted_, modified_fields, tuple, log.ts_, log.prev_version_};
 }
 
 auto TsToString(timestamp_t ts) {

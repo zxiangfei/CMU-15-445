@@ -2,7 +2,7 @@
  * @Author: zxiangfei 2464257291@qq.com
  * @Date: 2025-07-02 22:24:46
  * @LastEditors: zxiangfei 2464257291@qq.com
- * @LastEditTime: 2025-08-05 14:05:33
+ * @LastEditTime: 2025-08-21 00:52:32
  * @FilePath: /CMU-15-445/src/execution/insert_executor.cpp
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -22,6 +22,7 @@
 #include <memory>
 
 #include "execution/executors/insert_executor.h"
+#include "concurrency/transaction_manager.h"
 
 namespace bustub {
 
@@ -53,12 +54,20 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   auto txn = exec_ctx_->GetTransaction();  // 获取当前事务
   auto temp_ts = txn->GetTransactionTempTs();  // 获取事务的临时时间戳
 
-  while (child_executor_->Next(tuple, rid)) {
-    TupleMeta tuple_meta{temp_ts, false};  // 在MVCC的情况下，tuple_meta.ts_不再为0，而是为事务的临时时间戳，is_deleted_为false
-    std::optional<RID> insert_rid = table_info->table_->InsertTuple(tuple_meta, *tuple);  // 插入元组
+  // 设置插入新的tuple的 tuplemeta
+  TupleMeta meta = {temp_ts, false};  // 创建一个元组元数据，设置时间戳和删除标志
 
-    RID rid = insert_rid.value();  // 获取插入的RID
-    txn->AppendWriteSet(table_info->oid_, rid);  // 将插入的RID添加到事务的写集
+  // insert执行中是将所有要插入的tuple一次性插完，然后返回true
+  // 之后再进入这里的next函数时，返回false，结束insert执行
+  while (child_executor_->Next(tuple, rid)) {
+
+    std::optional<RID> insert_rid = table_info->table_->InsertTuple(meta, *tuple);  // 插入元组
+
+    *rid = insert_rid.value();  // 获取插入的RID
+    txn->AppendWriteSet(table_info->oid_, *rid);  // 将插入的RID添加到事务的写集
+
+    // 更新txn mgr版本链
+    exec_ctx_->GetTransactionManager()->UpdateUndoLink(*rid, std::make_optional(UndoLink{}), nullptr);
     inserted_count++;              // 记录插入的元组数量
     
     
@@ -66,7 +75,7 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
       // 获取索引的键值
       auto key_tuple = tuple->KeyFromTuple(schema, index->key_schema_, index->index_->GetKeyAttrs());
       // 插入索引
-      index->index_->InsertEntry(key_tuple, rid, exec_ctx_->GetTransaction());
+      index->index_->InsertEntry(key_tuple, *rid, exec_ctx_->GetTransaction());
     }
   }
 
