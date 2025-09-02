@@ -37,14 +37,14 @@ auto LRUKReplacer::Evict() -> std::optional<frame_id_t> {
     if (it->second->GetEvictable()) {
       if (lru_frame == this->node_store_.end() ||
           (it->second->GetHistorySize() < k_ && lru_frame->second->GetHistorySize() >= k_)) {
-        lru_frame = it;  //找到距离最大的frame
+        lru_frame = it;  // 找到距离最大的frame
         continue;
       }
       if (it->second->GetHistorySize() >= k_ && lru_frame->second->GetHistorySize() < k_) {
-        continue;  //如果当前frame访问次数大于K，且lru_frame小于K，则不更新lru_frame
+        continue;  // 如果当前frame访问次数大于K，且lru_frame小于K，则不更新lru_frame
       }
       if (lru_frame->second->GetKDistance() >= it->second->GetKDistance()) {
-        lru_frame = it;  //如果当前frame距离大于等于lru_frame，则更新lru_frame
+        lru_frame = it;  // 如果当前frame距离大于等于lru_frame，则更新lru_frame
       }
     }
   }

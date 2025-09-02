@@ -2,7 +2,7 @@
  * @Author: zxiangfei 2464257291@qq.com
  * @Date: 2025-06-15 15:26:01
  * @LastEditors: zxiangfei 2464257291@qq.com
- * @LastEditTime: 2025-07-28 14:45:51
+ * @LastEditTime: 2025-09-01 11:20:06
  * @FilePath: /CMU-15-445/src/execution/nested_loop_join_executor.cpp
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -61,17 +61,17 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     // 则从右侧执行器获取一个元组
     if (right_executor_->Next(&right_tuple_, rid)) {
       auto join_predicate = plan_->Predicate();  // 获取连接谓词
-      Value result;                              //保存谓词判断结果，即左右tuple是否满足连接条件
-      if (join_predicate != nullptr) {           //有谓词，评估左右tuple针对连接条件是否成立
+      Value result;                              // 保存谓词判断结果，即左右tuple是否满足连接条件
+      if (join_predicate != nullptr) {           // 有谓词，评估左右tuple针对连接条件是否成立
         result = join_predicate->EvaluateJoin(&left_tuple_, left_executor_->GetOutputSchema(), &right_tuple_,
                                               right_executor_->GetOutputSchema());
       } else {
-        result = ValueFactory::GetBooleanValue(true);  //没有谓词，则为笛卡尔积
+        result = ValueFactory::GetBooleanValue(true);  // 没有谓词，则为笛卡尔积
       }
 
       // 检查谓词结果
-      if (!result.IsNull() && result.GetAs<bool>()) {  //谓词存在并且为真，说明左右tuple满足连接条件
-        left_matched_ = true;                          //标记左侧元组至少匹配一个右侧元组
+      if (!result.IsNull() && result.GetAs<bool>()) {  // 谓词存在并且为真，说明左右tuple满足连接条件
+        left_matched_ = true;                          // 标记左侧元组至少匹配一个右侧元组
         std::vector<Value> values;                     // 合并左侧和右侧元组的值
         for (uint32_t i = 0; i < left_executor_->GetOutputSchema().GetColumnCount(); i++) {
           values.push_back(left_tuple_.GetValue(&left_executor_->GetOutputSchema(), i));
@@ -90,7 +90,7 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
         for (uint32_t i = 0; i < left_executor_->GetOutputSchema().GetColumnCount(); i++) {  // 遍历左侧元组的列
           values.push_back(left_tuple_.GetValue(&left_executor_->GetOutputSchema(), i));
         }
-        for (uint32_t i = 0; i < right_executor_->GetOutputSchema().GetColumnCount(); i++) {  //右侧列全部为null
+        for (uint32_t i = 0; i < right_executor_->GetOutputSchema().GetColumnCount(); i++) {  // 右侧列全部为null
           values.push_back(ValueFactory::GetNullValueByType(right_executor_->GetOutputSchema().GetColumn(i).GetType()));
         }
 

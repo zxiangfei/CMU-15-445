@@ -145,19 +145,19 @@ auto BufferPoolManager::Size() const -> size_t { return num_frames_; }
 auto BufferPoolManager::NewPage() -> page_id_t {
   std::unique_lock<std::mutex> latch(*bpm_latch_);
 
-  //找到BufferPoolManager中的一个帧用于存储新页面
+  // 找到BufferPoolManager中的一个帧用于存储新页面
   frame_id_t frame_id;
-  if (!free_frames_.empty()) {  //如果有空闲帧，直接使用
+  if (!free_frames_.empty()) {  // 如果有空闲帧，直接使用
     frame_id = free_frames_.front();
     free_frames_.pop_front();
-  } else {  //否则需要驱逐一个帧
+  } else {  // 否则需要驱逐一个帧
     auto frame_id_opt = replacer_->Evict();
-    if (!frame_id_opt.has_value()) {  //如果没有可驱逐的帧，返回无效页号
+    if (!frame_id_opt.has_value()) {  // 如果没有可驱逐的帧，返回无效页号
       return INVALID_PAGE_ID;
     }
     frame_id = frame_id_opt.value();
 
-    //找到page_table_中对应的旧页，删除并写回
+    // 找到page_table_中对应的旧页，删除并写回
     page_id_t old_page_id = INVALID_PAGE_ID;
     // 找到 frame_id 对应的 page_id
     for (auto &kv : page_table_) {
@@ -166,47 +166,47 @@ auto BufferPoolManager::NewPage() -> page_id_t {
         break;
       }
     }
-    //删除
+    // 删除
     if (old_page_id != INVALID_PAGE_ID) {
       page_table_.erase(old_page_id);
-      disk_scheduler_->DeallocatePage(old_page_id);  //从磁盘上删除页面
+      disk_scheduler_->DeallocatePage(old_page_id);  // 从磁盘上删除页面
     }
-    //如果旧页是脏的，需要写回磁盘
+    // 如果旧页是脏的，需要写回磁盘
     if (frames_[frame_id]->is_dirty_) {
       auto promise = disk_scheduler_->CreatePromise();  // 创建一个promise对象，用于异步写入
       auto future = promise.get_future();               // 获取future对象，用于等待写入完成
       disk_scheduler_->Schedule(DiskRequest{.is_write_ = true,
                                             .data_ = frames_[frame_id]->GetDataMut(),
                                             .page_id_ = old_page_id,
-                                            .callback_ = std::move(promise)}  //调度写入请求
+                                            .callback_ = std::move(promise)}  // 调度写入请求
       );
       future.get();  // 等待写入完成
     }
-    frames_[frame_id]->Reset();  //重置帧头部状态
+    frames_[frame_id]->Reset();  // 重置帧头部状态
   }
 
-  //完成frame中旧page的处理后，将新page data写入frame中
-  page_id_t new_page_id = next_page_id_.fetch_add(1);   //获取新的页号
-  disk_scheduler_->IncreaseDiskSpace(new_page_id + 1);  //确保磁盘空间足够
+  // 完成frame中旧page的处理后，将新page data写入frame中
+  page_id_t new_page_id = next_page_id_.fetch_add(1);   // 获取新的页号
+  disk_scheduler_->IncreaseDiskSpace(new_page_id + 1);  // 确保磁盘空间足够
 
-  //将新页号和帧号映射关系添加到page_table_中
+  // 将新页号和帧号映射关系添加到page_table_中
   page_table_.emplace(new_page_id, frame_id);
 
-  //读新页数据
+  // 读新页数据
   auto promise = disk_scheduler_->CreatePromise();  // 创建一个promise对象，用于异步写入
   auto future = promise.get_future();               // 获取future对象，用于等待写入完成
   disk_scheduler_->Schedule(DiskRequest{.is_write_ = true,
                                         .data_ = frames_[frame_id]->GetDataMut(),
                                         .page_id_ = new_page_id,
-                                        .callback_ = std::move(promise)}  //调度写入请求
+                                        .callback_ = std::move(promise)}  // 调度写入请求
   );
   future.get();  // 等待写入完成
 
-  //更新LRU-K替换器状态
-  replacer_->RecordAccess(frame_id);        //记录访问
-  replacer_->SetEvictable(frame_id, true);  //设置为不可驱逐
+  // 更新LRU-K替换器状态
+  replacer_->RecordAccess(frame_id);        // 记录访问
+  replacer_->SetEvictable(frame_id, true);  // 设置为不可驱逐
 
-  return new_page_id;  //返回新页号
+  return new_page_id;  // 返回新页号
 }
 
 /**
@@ -496,7 +496,7 @@ auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
     auto future = promise.get_future();               // 获取future对象，用于等待写入完成
     disk_scheduler_->Schedule(DiskRequest{
         .is_write_ = true, .data_ = frame->GetDataMut(), .page_id_ = page_id, .callback_ = std::move(promise)}
-                              //调度写入请求
+                              // 调度写入请求
     );
     future.get();              // 等待写入完成
     frame->is_dirty_ = false;  // 写回后重置脏标志
@@ -582,29 +582,29 @@ auto BufferPoolManager::GetPinCount(page_id_t page_id) -> std::optional<size_t> 
 auto BufferPoolManager::CheckedPage(page_id_t page_id, AccessType access_type) -> std::shared_ptr<FrameHeader> {
   frame_id_t frame_id;
 
-  //在缓冲池中查找页面
+  // 在缓冲池中查找页面
   if (page_table_.find(page_id) != page_table_.end()) {
-    //如果页面已存在，返回对应的帧头
+    // 如果页面已存在，返回对应的帧头
     frame_id = page_table_[page_id];
     auto frame = frames_[frame_id];
-    // frame->pin_count_++;  //增加pin计数
-    // replacer_->RecordAccess(frame_id);  //记录访问
-    // replacer_->SetEvictable(frame_id, false);  //设置为不可驱逐
+    // frame->pin_count_++;  // 增加pin计数
+    // replacer_->RecordAccess(frame_id);  // 记录访问
+    // replacer_->SetEvictable(frame_id, false);  // 设置为不可驱逐
     return frame;
   }
 
-  //如果页面不存在，尝试从磁盘读取
+  // 如果页面不存在，尝试从磁盘读取
   if (!free_frames_.empty()) {
     frame_id = this->free_frames_.front();  // 获取空闲链表的第一个frame id
     this->free_frames_.pop_front();         // 从空闲链表中移除该frame id
-  } else {                                  //如果没有空闲帧，需要驱逐一个帧
+  } else {                                  // 如果没有空闲帧，需要驱逐一个帧
     auto frame_id_opt = replacer_->Evict();
-    if (!frame_id_opt.has_value()) {  //如果没有可驱逐的帧，返回无效页号
+    if (!frame_id_opt.has_value()) {  // 如果没有可驱逐的帧，返回无效页号
       return nullptr;
     }
     frame_id = frame_id_opt.value();
 
-    //找到page_table_中对应的旧页，删除并写回
+    // 找到page_table_中对应的旧页，删除并写回
     page_id_t old_page_id = INVALID_PAGE_ID;
     // 找到 frame_id 对应的 page_id
     for (auto &kv : page_table_) {
@@ -613,45 +613,45 @@ auto BufferPoolManager::CheckedPage(page_id_t page_id, AccessType access_type) -
         break;
       }
     }
-    //删除
+    // 删除
     if (old_page_id != INVALID_PAGE_ID) {
       page_table_.erase(old_page_id);
     }
-    //如果旧页是脏的，需要写回磁盘
+    // 如果旧页是脏的，需要写回磁盘
     if (frames_[frame_id]->is_dirty_) {
       auto promise = disk_scheduler_->CreatePromise();  // 创建一个promise对象，用于异步写入
       auto future = promise.get_future();               // 获取future对象，用于等待写入完成
       disk_scheduler_->Schedule(DiskRequest{.is_write_ = true,
                                             .data_ = frames_[frame_id]->GetDataMut(),
                                             .page_id_ = old_page_id,
-                                            .callback_ = std::move(promise)}  //调度写入请求
+                                            .callback_ = std::move(promise)}  // 调度写入请求
       );
       future.get();  // 等待写入完成
     }
-    frames_[frame_id]->Reset();  //重置帧头部状态
+    frames_[frame_id]->Reset();  // 重置帧头部状态
   }
 
-  //完成frame中旧page的处理后，将新page data写入frame中
-  disk_scheduler_->IncreaseDiskSpace(page_id + 1);  //确保磁盘空间足够
-  //将新页号和帧号映射关系添加到page_table_中
+  // 完成frame中旧page的处理后，将新page data写入frame中
+  disk_scheduler_->IncreaseDiskSpace(page_id + 1);  // 确保磁盘空间足够
+  // 将新页号和帧号映射关系添加到page_table_中
   page_table_.emplace(page_id, frame_id);
-  // frames_[frame_id]->is_dirty_ = false;  //新页默认不脏
-  // frames_[frame_id]->pin_count_.store(1);  //pin计数置为1，表示新页被pin住
+  // frames_[frame_id]->is_dirty_ = false;  // 新页默认不脏
+  // frames_[frame_id]->pin_count_.store(1);  // pin计数置为1，表示新页被pin住
 
-  //更新LRU-K替换器状态
-  replacer_->RecordAccess(frame_id);        //记录访问
-  replacer_->SetEvictable(frame_id, true);  //设置为不可驱
+  // 更新LRU-K替换器状态
+  replacer_->RecordAccess(frame_id);        // 记录访问
+  replacer_->SetEvictable(frame_id, true);  // 设置为不可驱
 
-  //从磁盘中读数据
+  // 从磁盘中读数据
   auto promise = disk_scheduler_->CreatePromise();  // 创建一个promise对象，用于异步读取
   auto future = promise.get_future();               // 获取future对象，用于等待读取完成
   disk_scheduler_->Schedule(DiskRequest{.is_write_ = false,
                                         .data_ = frames_[frame_id]->GetDataMut(),
                                         .page_id_ = page_id,
-                                        .callback_ = std::move(promise)}  //调度读取请求
+                                        .callback_ = std::move(promise)}  // 调度读取请求
   );
   future.get();              // 等待读取完成
-  return frames_[frame_id];  //返回帧头
+  return frames_[frame_id];  // 返回帧头
 }
 
 }  // namespace bustub

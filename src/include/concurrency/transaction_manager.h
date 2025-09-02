@@ -37,7 +37,7 @@ namespace bustub {
 // 负责管理系统中所有事务的生命周期、时间戳分配、多版本并发控制（MVCC）以及垃圾回收相关的元数据
 class TransactionManager {
  public:
- // 默认构造和析构
+  // 默认构造和析构
   TransactionManager() = default;
   ~TransactionManager() = default;
 
@@ -97,9 +97,10 @@ class TransactionManager {
   void GarbageCollection();
 
   /** protects txn map */
-  std::shared_mutex txn_map_mutex_;    // 保护事务映射的互斥锁
+  std::shared_mutex txn_map_mutex_;  // 保护事务映射的互斥锁
   /** All transactions, running or committed */
-  std::unordered_map<txn_id_t, std::shared_ptr<Transaction>> txn_map_;   // 存储所有事务（正在进行或已完成），通过 txn_id 快速访问
+  std::unordered_map<txn_id_t, std::shared_ptr<Transaction>>
+      txn_map_;  // 存储所有事务（正在进行或已完成），通过 txn_id 快速访问
 
   /**
    * 每个页（page）对应一个 PageVersionInfo 对象，
@@ -119,7 +120,8 @@ class TransactionManager {
   std::shared_mutex version_info_mutex_;  // 保护版本信息的互斥锁
   /** Stores the previous version of each tuple in the table heap. Do not directly access this field. Use the helper
    * functions in `transaction_manager_impl.cpp`. */
-  std::unordered_map<page_id_t, std::shared_ptr<PageVersionInfo>> version_info_;  // 存储每个页（page）上所有槽（slot）的最新 undo 链头信息，用于 MVCC 版本查找
+  std::unordered_map<page_id_t, std::shared_ptr<PageVersionInfo>>
+      version_info_;  // 存储每个页（page）上所有槽（slot）的最新 undo 链头信息，用于 MVCC 版本查找
 
   /** Stores all the read_ts of running txns so as to facilitate garbage collection. */
   Watermark running_txns_{0};  // Watermark 结构，存所有活跃事务的 read_ts，支持 O(log N) 查询最小值
@@ -132,7 +134,8 @@ class TransactionManager {
   /** Catalog */
   Catalog *catalog_;  // Catalog 实例，提供表、索引等元数据的访问
 
-  std::atomic<txn_id_t> next_txn_id_{TXN_START_ID};  // 下一个事务 ID，原子操作，确保线程安全  从预定义常量 TXN_START_ID 开始增长
+  std::atomic<txn_id_t> next_txn_id_{
+      TXN_START_ID};  // 下一个事务 ID，原子操作，确保线程安全  从预定义常量 TXN_START_ID 开始增长
 
  private:
   /** @brief Verify if a txn satisfies serializability. We will not test this function and you can change / remove it as

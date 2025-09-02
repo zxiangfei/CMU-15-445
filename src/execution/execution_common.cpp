@@ -138,7 +138,6 @@ auto ReconstructTuple(const Schema *schema, const Tuple &base_tuple, const Tuple
   return tuple;
 }
 
-
 /**
  * @brief Collects the undo logs sufficient to reconstruct the tuple w.r.t. the txn.
  *
@@ -163,7 +162,6 @@ auto ReconstructTuple(const Schema *schema, const Tuple &base_tuple, const Tuple
  */
 auto CollectUndoLogs(RID rid, const TupleMeta &base_meta, const Tuple &base_tuple, std::optional<UndoLink> undo_link,
                      Transaction *txn, TransactionManager *txn_mgr) -> std::optional<std::vector<UndoLog>> {
-                      std::cout << base_meta.ts_ << " " << txn->GetReadTs() << std::endl;
   // p.s. 此函数中不需要管 base_tuple 和 undo_log 的 delete 字段，只需要收集需要用到的UndoLog
   // 对于delete的处理在ReconstructTuple函数中进行
 
@@ -198,10 +196,6 @@ auto CollectUndoLogs(RID rid, const TupleMeta &base_meta, const Tuple &base_tupl
   }
   return std::nullopt;
 }
-
-
-
-
 
 /**
  * @brief Generates a new undo log as the transaction tries to modify this tuple at the first time.
@@ -300,7 +294,7 @@ auto GenerateUpdatedUndoLog(const Schema *schema, const Tuple *base_tuple, const
   Schema undo_log_schema(columns);  // 生成一个新的schema，包含了所有修改的列
 
   // 如果是删除
-  if(target_tuple == nullptr){
+  if (target_tuple == nullptr) {
     std::vector<bool> modified_fields(schema->GetColumnCount(), true);
 
     // 生成旧的元组
@@ -356,13 +350,7 @@ auto TsToString(timestamp_t ts) {
 
 void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const TableInfo *table_info,
                TableHeap *table_heap) {
-  // always use stderr for printing logs...
   fmt::println(stderr, "debug_hook: {}", info);
-
-  // fmt::println(
-  //     stderr,
-  //     "You see this line of text because you have not implemented `TxnMgrDbg`. You should do this once you have "
-  //     "finished task 2. Implementing this helper function will save you a lot of time for debugging in later tasks.");
 
   auto iter = table_heap->MakeIterator();
   while (!iter.IsEnd()) {
@@ -371,78 +359,73 @@ void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const Table
     fmt::println("RID={}/{} ts={} {} tuple={} ", std::to_string(rid.GetPageId()), std::to_string(rid.GetSlotNum()),
                  TsToString(tuple_info.first.ts_), tuple_info.first.is_deleted_ ? "<del marker>" : "",
                  tuple_info.second.ToString(&table_info->schema_));
+
     auto undo_link = txn_mgr->GetUndoLink(rid);
-    std::vector<Value> vec;
-    for (size_t i = 0; i < table_info->schema_.GetColumnCount(); i++) {
-      vec.push_back(tuple_info.second.GetValue(&table_info->schema_, i));
-    }
     if (undo_link.has_value()) {
+      // 把“当前头部”的值先展开到 vec，后面按需要用 undo 覆盖
+      std::vector<Value> vec;
+      vec.reserve(table_info->schema_.GetColumnCount());
+      for (size_t i = 0; i < table_info->schema_.GetColumnCount(); i++) {
+        vec.push_back(tuple_info.second.GetValue(&table_info->schema_, i));
+      }
+
+      // 如果这个 undo 来源的事务已经被清理，就不要往下打印，避免访问无主日志
       if (txn_mgr->txn_map_.count(undo_link->prev_txn_) == 0) {
         ++iter;
         continue;
       }
+
       auto log = txn_mgr->GetUndoLog(undo_link.value());
-      std::vector<Column> cols;
-      for (size_t i = 0; i < log.modified_fields_.size(); i++) {
-        if (log.modified_fields_[i]) {
-          cols.push_back(table_info->schema_.GetColumn(i));
-          // vec[i] = log.tuple_.GetValue(log.tuple_, i);
+
+      auto print_one = [&](const UndoLog &lg, const UndoLink &lk, const char *prefix) {
+        // 构造一份用于打印的向量：删除型 undo -> 打印 NULL；非删除 -> 覆盖被修改的列
+        std::vector<Value> to_print = vec;
+        if (!lg.is_deleted_) {
+          std::vector<Column> cols;
+          cols.reserve(lg.modified_fields_.size());
+          for (size_t i = 0; i < lg.modified_fields_.size(); i++) {
+            if (lg.modified_fields_[i]) {
+              cols.push_back(table_info->schema_.GetColumn(i));
+            }
+          }
+          Schema log_schema(cols);
+          size_t col_idx = 0;
+          for (size_t i = 0; i < lg.modified_fields_.size(); i++) {
+            if (lg.modified_fields_[i]) {
+              to_print[i] = lg.tuple_.GetValue(&log_schema, col_idx++);
+            }
+          }
+        } else {
+          // 删除型 undo：用 NULL 占位，避免访问空 tuple
+          to_print.clear();
+          to_print.reserve(table_info->schema_.GetColumnCount());
+          for (size_t i = 0; i < table_info->schema_.GetColumnCount(); i++) {
+            to_print.emplace_back(ValueFactory::GetNullValueByType(table_info->schema_.GetColumn(i).GetType()));
+          }
         }
-      }
-      auto log_schema = Schema(cols);
-      size_t col_idx = 0;
-      for (size_t i = 0; i < log.modified_fields_.size(); i++) {
-        if (log.modified_fields_[i]) {
-          // cols.push_back(schema->GetColumn(i));
-          vec[i] = log.tuple_.GetValue(&log_schema, col_idx++);
-        }
-      }
-      fmt::println("   {}@{} {} tuple={} ts={}", TsToString(undo_link->prev_txn_),
-                   std::to_string(undo_link->prev_log_idx_), log.is_deleted_ ? "<del marker>" : "",
-                   Tuple(vec, &table_info->schema_).ToString(&table_info->schema_), std::to_string(log.ts_));
+
+        fmt::println("   {}@{} {} tuple={} ts={}", TsToString(lk.prev_txn_), std::to_string(lk.prev_log_idx_),
+                     lg.is_deleted_ ? "<del marker>" : "",
+                     Tuple(to_print, &table_info->schema_).ToString(&table_info->schema_), std::to_string(lg.ts_));
+      };
+
+      // 打印第一条
+      print_one(log, *undo_link, "");
+      // 继续沿链打印
       while (log.prev_version_.IsValid()) {
         if (txn_mgr->txn_map_.count(log.prev_version_.prev_txn_) == 0) {
           break;
         }
-        log = txn_mgr->GetUndoLog(log.prev_version_);
-        std::vector<Column> cols;
-        for (size_t i = 0; i < log.modified_fields_.size(); i++) {
-          if (log.modified_fields_[i]) {
-            cols.push_back(table_info->schema_.GetColumn(i));
-            // vec[i] = log.tuple_.GetValue(log.tuple_, i);
-          }
-        }
-        auto log_schema = Schema(cols);
-        size_t col_idx = 0;
-        for (size_t i = 0; i < log.modified_fields_.size(); i++) {
-          if (log.modified_fields_[i]) {
-            // cols.push_back(schema->GetColumn(i));
-            vec[i] = log.tuple_.GetValue(&log_schema, col_idx++);
-          }
-        }
-        fmt::println("   txn{}@{} {} tuple={} ts={}", TsToString(undo_link->prev_txn_),
-                     std::to_string(undo_link->prev_log_idx_), log.is_deleted_ ? "<del marker>" : "",
-                     Tuple(vec, &table_info->schema_).ToString(&table_info->schema_), std::to_string(log.ts_));
+        // 注意：这里为了可读性，我们保持“to_print 从 vec 出发”的逻辑；
+        // 如果你希望层层叠加打印，也可以把 vec = to_print 放进循环。
+        auto next_link = log.prev_version_;
+        log = txn_mgr->GetUndoLog(next_link);
+        print_one(log, next_link, "txn");
       }
     }
     ++iter;
   }
   fmt::println("");
-
-  // We recommend implementing this function as traversing the table heap and print the version chain. An example output
-  // of our reference solution:
-  //
-  // debug_hook: before verify scan
-  // RID=0/0 ts=txn8 tuple=(1, <NULL>, <NULL>)
-  //   txn8@0 (2, _, _) ts=1
-  // RID=0/1 ts=3 tuple=(3, <NULL>, <NULL>)
-  //   txn5@0 <del> ts=2
-  //   txn3@0 (4, <NULL>, <NULL>) ts=1
-  // RID=0/2 ts=4 <del marker> tuple=(<NULL>, <NULL>, <NULL>)
-  //   txn7@0 (5, <NULL>, <NULL>) ts=3
-  // RID=0/3 ts=txn6 <del marker> tuple=(<NULL>, <NULL>, <NULL>)
-  //   txn6@0 (6, <NULL>, <NULL>) ts=2
-  //   txn3@1 (7, _, _) ts=1
 }
 
 }  // namespace bustub

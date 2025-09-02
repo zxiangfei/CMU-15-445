@@ -70,33 +70,33 @@ class FrameHeader {
   explicit FrameHeader(frame_id_t frame_id);
 
  private:
-  auto GetData() const -> const char *;  //返回只读指针，指向当前帧中存储的页面数据
-  auto GetDataMut() -> char *;           //返回可写指针，指向当前帧中存储的页面数据
-  void Reset();  //清空数据（memset 0）、重置 pin_count_、is_dirty_，为一个空闲帧做准备
+  auto GetData() const -> const char *;  // 返回只读指针，指向当前帧中存储的页面数据
+  auto GetDataMut() -> char *;           // 返回可写指针，指向当前帧中存储的页面数据
+  void Reset();  // 清空数据（memset 0）、重置 pin_count_、is_dirty_，为一个空闲帧做准备
 
   /** @brief The frame ID / index of the frame this header represents. */
-  const frame_id_t frame_id_;  //唯一标识这个帧在缓冲池数组中的索引
+  const frame_id_t frame_id_;  // 唯一标识这个帧在缓冲池数组中的索引
 
   /** @brief The readers / writer latch for this frame. */
   /**
    * ReadPageGuard 在构造时以共享（读）锁方式锁住它，析构时解锁
    * WritePageGuard 在构造时以独占（写）锁方式锁住它，并在析构时解锁
    */
-  std::shared_mutex rwlatch_;  //用于控制多线程环境下对同一帧数据的并发访问
+  std::shared_mutex rwlatch_;  // 用于控制多线程环境下对同一帧数据的并发访问
 
   /** @brief The number of pins on this frame keeping the page in memory. */
-  std::atomic<size_t> pin_count_;  //记录当前有多少个 Guard（或其他逻辑）正在“pin”住（使用）这个帧。只有当 pin_count_ ==
-                                   // 0 时，缓冲池才允许将这个帧驱逐出去
+  std::atomic<size_t> pin_count_;  // 记录当前有多少个 Guard（或其他逻辑）正在“pin”住（使用）这个帧。只有当 pin_count_
+                                   // == 0 时，缓冲池才允许将这个帧驱逐出去
 
   /** @brief The dirty flag. */
-  bool is_dirty_;  //标识这个帧中的页面数据自加载以来是否被修改过。驱逐或写回时，需要根据它决定是否要把页面写回磁盘
+  bool is_dirty_;  // 标识这个帧中的页面数据自加载以来是否被修改过。驱逐或写回时，需要根据它决定是否要把页面写回磁盘
 
   /**
    * @brief A pointer to the data of the page that this frame holds.
    *
    * If the frame does not hold any page data, the frame contains all null bytes.
    */
-  std::vector<char> data_;  //采用 std::vector<char> 动态分配一段固定大小（通常是 4KB），存放页面内容
+  std::vector<char> data_;  // 采用 std::vector<char> 动态分配一段固定大小（通常是 4KB），存放页面内容
 
   /**
    * TODO(P1): You may add any fields or helper functions under here that you think are necessary.
@@ -128,7 +128,7 @@ class BufferPoolManager {
                     LogManager *log_manager = nullptr);
   ~BufferPoolManager();
 
-  auto Size() const -> size_t;  //返回缓冲池中帧的数量，即 num_frames_
+  auto Size() const -> size_t;  // 返回缓冲池中帧的数量，即 num_frames_
   auto NewPage() -> page_id_t;
   auto DeletePage(page_id_t page_id) -> bool;
   auto CheckedWritePage(page_id_t page_id, AccessType access_type = AccessType::Unknown)
@@ -142,32 +142,32 @@ class BufferPoolManager {
 
  private:
   /** @brief The number of frames in the buffer pool. */
-  const size_t num_frames_;  //缓冲池帧总数
+  const size_t num_frames_;  // 缓冲池帧总数
 
   /** @brief The next page ID to be allocated.  */
-  std::atomic<page_id_t> next_page_id_;  //下一个要分配的页号
+  std::atomic<page_id_t> next_page_id_;  // 下一个要分配的页号
 
   /**
    * @brief The latch protecting the buffer pool's inner data structures.
    *
    * TODO(P1) We recommend replacing this comment with details about what this latch actually protects.
    */
-  std::shared_ptr<std::mutex> bpm_latch_;  //保护整个 BufferPoolManager 内部状态的互斥锁
+  std::shared_ptr<std::mutex> bpm_latch_;  // 保护整个 BufferPoolManager 内部状态的互斥锁
 
   /** @brief The frame headers of the frames that this buffer pool manages. */
-  std::vector<std::shared_ptr<FrameHeader>> frames_;  //缓冲池中所有帧的头部信息，包含帧 ID、读写锁、pin 计数、脏标志等
+  std::vector<std::shared_ptr<FrameHeader>> frames_;  // 缓冲池中所有帧的头部信息，包含帧 ID、读写锁、pin 计数、脏标志等
 
   /** @brief The page table that keeps track of the mapping between pages and buffer pool frames. */
-  std::unordered_map<page_id_t, frame_id_t> page_table_;  //哈希表 page_id → frame_id，记录当前哪些页已经被加载到哪个帧
+  std::unordered_map<page_id_t, frame_id_t> page_table_;  // 哈希表 page_id → frame_id，记录当前哪些页已经被加载到哪个帧
 
   /** @brief A list of free frames that do not hold any page's data. */
-  std::list<frame_id_t> free_frames_;  //空闲帧列表，优先从这里分配新帧，不用驱逐
+  std::list<frame_id_t> free_frames_;  // 空闲帧列表，优先从这里分配新帧，不用驱逐
 
   /** @brief The replacer to find unpinned / candidate pages for eviction. */
-  std::shared_ptr<LRUKReplacer> replacer_;  //指向 LRUKReplacer 的智能指针，用于挑选驱逐候选页
+  std::shared_ptr<LRUKReplacer> replacer_;  // 指向 LRUKReplacer 的智能指针，用于挑选驱逐候选页
 
   /** @brief A pointer to the disk scheduler. */
-  std::unique_ptr<DiskScheduler> disk_scheduler_;  //指向 LRUKReplacer 的智能指针，用于挑选驱逐候选页
+  std::unique_ptr<DiskScheduler> disk_scheduler_;  // 指向 DiskScheduler 的智能指针，用于调度磁盘 I/O
 
   /**
    * @brief A pointer to the log manager.
